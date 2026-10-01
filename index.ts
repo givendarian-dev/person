@@ -1,5 +1,5 @@
 import db from "./src/config/database";
-import {createProfile} from "./src/controllers/profile";
+import {createProfile, getProfiles} from "./src/controllers/profile";
 
 
 try {
@@ -24,7 +24,8 @@ const server = Bun.serve({
         // Backend routes
         "/api/server" : () => Response.json({message : "Server is running"}),
         "/api/profile" : {
-            POST : createProfile
+            POST : createProfile,
+            GET : getProfiles
         }
     },
     fetch(req) {return new Response("Not Found", {status : 404})}

@@ -165,3 +165,69 @@ export async function createProfile(req: Request) {
     }
 
 }
+
+// Fetching the profile
+// 1. Make a get request to /api/server
+// controller recieves the request
+// Queried the database
+/* 
+    SELECT
+        id,
+        full_name,
+        email,
+        phone,
+        bio,
+        location,
+        age
+    FROM profiles
+*/
+// check of the user exists
+//      if (yes) -> Return the profile(s)
+//      no -> 404
+//      check for database failure
+export async function getProfiles(req: Request) {
+    try {
+        const profiles = await db`
+            SELECT
+                id,
+                full_name,
+                email,
+                phone,
+                bio,
+                location,
+                age,
+                created_at,
+                updated_at
+            FROM profiles
+        `;
+
+        // Check if any profiles exist
+        if (!profiles || profiles.length === 0) {
+            return Response.json(
+                {
+                    success: false,
+                    message: "No profiles found",
+                },
+                { status: 404 }
+            );
+        }
+
+        return Response.json(
+            {
+                success: true,
+                message: "Profiles retrieved successfully",
+                data: profiles,
+            },
+            { status: 200 }
+        );
+    } catch (dbError: any) {
+        console.error("Database Fetch Error:", dbError.message);
+        return Response.json(
+            {
+                success: false,
+                error: "Failed to retrieve profiles from database.",
+            },
+            { status: 500 }
+        );
+    }
+}
