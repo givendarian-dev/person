@@ -1,31 +1,42 @@
-# Person
+# Personal Profile API
 
-A small profile management backend built with Bun and MySQL. The project is designed to store and validate personal profile information such as full name, email, phone number, age, bio, and location.
+This project is a small backend service for managing personal profiles. It is built with Bun, TypeScript, and MySQL, and it focuses on creating profile records with validation and secure database insertion.
 
-## Project summary
-This application exposes a lightweight API for creating profile records in a MySQL database. It includes server setup, database connection configuration, validation logic, and a database schema for a personal profile table. The backend is currently the main focus of the project; the frontend folder is present but is still empty.
+## Overview
+The app exposes a minimal API for storing a person's profile information, including:
+- full name
+- email address
+- phone number
+- age
+- bio
+- location
 
-## Features
-- Bun-based HTTP server
-- MySQL database connection through environment variables
-- Profile creation endpoint with validation
-- Unique email enforcement
-- Input checks for empty values, invalid email format, and invalid age
-- Basic health routes for server status
+The current implementation is backend-focused and includes data validation before insertion into the database.
+
+## Tech stack
+- Bun runtime
+- TypeScript
+- MySQL database
+- Environment-based configuration
 
 ## Project structure
-- `index.ts` - starts the Bun server and defines the API routes
-- `src/config/database.ts` - initializes the MySQL connection
-- `src/controllers/profile.ts` - handles profile validation and insertion logic
-- `schema.sql` - creates the `profiles` table in MySQL
-- `frontend/` - intended frontend workspace; currently empty
-- `text.sql` - contains unrelated example SQL practice queries
-- `.env` - local environment configuration for the database connection
+- `index.ts` — starts the Bun server and defines application routes
+- `src/config/database.ts` — configures the MySQL database connection
+- `src/controllers/profile.ts` — handles profile validation and storage logic
+- `schema.sql` — creates the `profiles` table in MySQL
+- `frontend/` — placeholder frontend folder; currently empty
+- `text.sql` — SQL practice/examples, not part of the main app logic
+- `.env` — environment variables used to connect to MySQL
+- `package.json` — Bun project dependencies and scripts
 
 ## Database schema
-The main table is defined in `schema.sql`:
+The main database table is defined in `schema.sql`:
 
 ```sql
+CREATE DATABASE IF NOT EXISTS personal_profile;
+
+USE personal_profile;
+
 CREATE TABLE profiles (
     id INT AUTO_INCREMENT PRIMARY KEY,
     full_name VARCHAR(150) NOT NULL,
@@ -41,7 +52,7 @@ CREATE TABLE profiles (
 ```
 
 ## Environment setup
-Create or update a `.env` file in the project root with your local MySQL settings:
+Create a `.env` file in the project root with your local MySQL credentials:
 
 ```env
 DB_HOST=localhost
@@ -51,33 +62,42 @@ DB_USER=root
 DB_PASSWORD=your_mysql_password
 ```
 
-## Installation and run
+## Installation
 Install dependencies:
 
 ```bash
 bun install
 ```
 
-Start the app:
+## Run the app
+Start the app in development mode:
 
 ```bash
 bun run dev
 ```
 
-You can also run the app directly:
+Or run it directly:
 
 ```bash
 bun run index.ts
 ```
 
-## API routes
-The project currently exposes the following routes:
+## API endpoints
+The server exposes the following routes:
 
-- `GET /` - welcome message
-- `GET /api/server` - server health check response
-- `POST /api/profile` - creates a profile record
+- `GET /` — welcome message
+- `GET /api/server` — confirms the server is running
+- `POST /api/profile` — creates a new profile record
 
-## Example profile request
+## Profile validation rules
+The `POST /api/profile` route validates the payload before inserting data. It checks:
+- required `full_name` and `email`
+- non-empty string values
+- valid email format
+- age is a positive integer between 1 and 150 when provided
+- duplicate emails are rejected
+
+## Example request
 ```json
 {
   "full_name": "Givendarian Developer",
@@ -89,5 +109,16 @@ The project currently exposes the following routes:
 }
 ```
 
-## Notes
-This project is currently a backend-focused profile system. The profile controller validates inputs before inserting records into MySQL, and it returns appropriate responses for invalid input, duplicate emails, and database failures.
+## Response example
+```json
+{
+  "success": true,
+  "message": "Profile created successfully",
+  "data": {
+    "full_name": "Givendarian Developer"
+  }
+}
+```
+
+## Current status
+This project is currently a working backend prototype for personal profile creation. The frontend folder is present but not yet implemented, so the primary functionality is the API and database layer.
