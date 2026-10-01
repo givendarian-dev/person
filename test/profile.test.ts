@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from "bun:test";
 import db from "../src/config/database"; // Adjust path to database.ts
-import { createProfile } from "../src/controllers/profile"; // Adjust path to profile.ts
+import { createProfile, getProfiles, getProfileById } from "../src/controllers/profile"; // Adjust path to profile.ts
 
 describe("POST /api/profile - createProfile Controller", () => {
     // Helper to invoke the controller directly
@@ -100,5 +100,88 @@ describe("POST /api/profile - createProfile Controller", () => {
         expect(status).toBe(409);
         expect(data.success).toBe(false);
         expect(data.error).toBe("A profile with this email already exists.");
+    });
+});
+
+describe("GET Profile Endpoints", () => {
+    let testProfileId: number;
+
+    // Insert a known test record into the database before tests run
+    beforeAll(async () => {
+        // Clean up pre-existing test records
+        await db`DELETE FROM profiles WHERE email = 'test_fetch@example.com'`;
+
+        // Insert test record
+        const result = await db`
+            INSERT INTO profiles (full_name, email, phone, bio, location, age)
+            VALUES ('Test Fetch User', 'test_fetch@example.com', '+256700112233', 'Bio text', 'Kampala', 30)
+        `;
+
+        // Step 2: Select the row using the newly generated insertId
+        const [newProfile] = await db`
+            SELECT * FROM profiles WHERE email = 'test_fetch@example.com'
+        `;
+
+        testProfileId = newProfile.id;
+    });
+
+    describe("GET /api/profile (getProfiles)", () => {
+        it("should return 200 OK and an array of profiles", async () => {
+            const req = new Request("http://localhost:5500/api/profile", {
+                method: "GET",
+            });
+
+            const res = await getProfiles(req);
+            const data = await res.json();
+
+            expect(res.status).toBe(200);
+            expect(data.success).toBe(true);
+            expect(Array.isArray(data.data)).toBe(true);
+            expect(data.data.length).toBeGreaterThan(0);
+        });
+    });
+
+    describe("GET /api/profile?id=X (getProfileById)", () => {
+        it("should return 200 OK and the matching profile for a valid ID", async () => {
+            
+            const req = new Request(
+                `http://localhost:5500/api/profile?id=${testProfileId}`,
+                { method: "GET" }
+            );
+
+            const res = await getProfileById(req);
+            const data = await res.json();
+
+            expect(res.status).toBe(200);
+            expect(data.success).toBe(true);
+            expect(data.data.id).toBe(testProfileId);
+            expect(data.data.email).toBe("test_fetch@example.com");
+        });
+
+        it("should return 400 Bad Request if ID parameter is missing or non-numeric", async () => {
+            const req = new Request("http://localhost:5500/api/profile?id=abc", {
+                method: "GET",
+            });
+
+            const res = await getProfileById(req);
+            const data = await res.json();
+
+            expect(res.status).toBe(400);
+            expect(data.success).toBe(false);
+            expect(data.error).toContain("valid numeric profile ID");
+        });
+
+        it("should return 404 Not Found for an ID that does not exist", async () => {
+            const req = new Request("http://localhost:5500/api/profile?id=999999", {
+                method: "GET",
+            });
+
+            const res = await getProfileById(req);
+            const data = await res.json();
+
+            expect(res.status).toBe(404);
+            expect(data.success).toBe(false);
+            expect(data.error).toContain("not found");
+        });
     });
 });
