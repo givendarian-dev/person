@@ -34,10 +34,6 @@ const server = Bun.serve({
                 return getProfiles(req);
             }
         },
-
-        "/api/profile/:id": {
-            GET: getProfileById
-        }
     },
     fetch(req) { return new Response("Not Found", { status: 404 }) }
 
