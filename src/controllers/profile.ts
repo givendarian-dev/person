@@ -151,7 +151,7 @@ export async function createProfile(req: Request) {
         
 
         // Handle unique constraint violations (e.g., Duplicate email)
-        if (dbError.code === "ERR_MYSQL_SERVER_ERROR") {
+        if (dbError.errno === 1062) {
             return Response.json(
                 { success: false, error: "A profile with this email already exists." },
                 { status: 409 }
