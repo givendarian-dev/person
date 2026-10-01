@@ -1,5 +1,5 @@
 import db from "./src/config/database";
-import {createProfile, getProfiles} from "./src/controllers/profile";
+import { createProfile, getProfileById, getProfiles } from "./src/controllers/profile";
 
 
 try {
@@ -16,20 +16,31 @@ try {
 const PORT = 5500;
 
 const server = Bun.serve({
-    port : PORT,
-    routes : {
+    port: PORT,
+    routes: {
         // frontend routes
-        "/" : () => new Response('Welcome to the Personal Profile System'),
+        "/": () => new Response('Welcome to the Personal Profile System'),
 
         // Backend routes
-        "/api/server" : () => Response.json({message : "Server is running"}),
-        "/api/profile" : {
-            POST : createProfile,
-            GET : getProfiles
+        "/api/server": () => Response.json({ message: "Server is running" }),
+        "/api/profile": {
+            POST: createProfile,
+            GET: (req) => {
+                const url = new URL(req.url);
+                // If ?id= is present in the URL, fetch by ID; otherwise fetch all
+                if (url.searchParams.has("id")) {
+                    return getProfileById(req);
+                }
+                return getProfiles(req);
+            }
+        },
+
+        "/api/profile/:id": {
+            GET: getProfileById
         }
     },
-    fetch(req) {return new Response("Not Found", {status : 404})}
-    
+    fetch(req) { return new Response("Not Found", { status: 404 }) }
+
 });
 
 console.log(`Server is running on port ${PORT}!`);

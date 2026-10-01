@@ -133,7 +133,7 @@ export async function createProfile(req: Request) {
             INSERT INTO profiles (full_name, email, phone, bio, location, age)
             VALUES (${full_name}, ${email}, ${phone}, ${bio}, ${location}, ${age})
         `;
-        
+
         console.log(result);
 
         return Response.json(
@@ -141,14 +141,14 @@ export async function createProfile(req: Request) {
                 success: true,
                 message: "Profile created successfully",
                 data: {
-                    full_name : full_name
+                    full_name: full_name
                 },
             },
             { status: 201 }
         );
     } catch (dbError: any) {
         console.error("Database Insert Error:", dbError.message);
-        
+
 
         // Handle unique constraint violations (e.g., Duplicate email)
         if (dbError.errno === 1062) {
@@ -226,6 +226,68 @@ export async function getProfiles(req: Request) {
             {
                 success: false,
                 error: "Failed to retrieve profiles from database.",
+            },
+            { status: 500 }
+        );
+    }
+}
+
+// Fetching Profile by ID
+export async function getProfileById(req: Request) {
+    try {
+        const url = new URL(req.url);
+        const id = url.searchParams.get("id");
+
+        if (!id || isNaN(Number(id))) {
+            return Response.json(
+                {
+                    success: false,
+                    error: "A valid numeric profile ID is required",
+                },
+                { status: 400 }
+            );
+        }
+
+        const [profile] = await db`
+            SELECT
+                id,
+                full_name,
+                email,
+                phone,
+                bio,
+                location,
+                age,
+                created_at,
+                updated_at
+            FROM profiles
+            WHERE id = ${Number(id)}
+        `;
+
+        // Check if profile exists
+        if (!profile) {
+            return Response.json(
+                {
+                    success: false,
+                    error: `Profile with ID ${id} not found`,
+                },
+                { status: 404 }
+            );
+        }
+
+        return Response.json(
+            {
+                success: true,
+                message: "Profile retrieved successfully",
+                data: profile,
+            },
+            { status: 200 }
+        );
+    } catch (dbError: any) {
+        console.error("Database Fetch Error:", dbError.message);
+        return Response.json(
+            {
+                success: false,
+                error: "Failed to retrieve profile from database.",
             },
             { status: 500 }
         );
