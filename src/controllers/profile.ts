@@ -364,3 +364,234 @@ export async function deleteProfile(req: Request) {
         );
     }
 }
+
+// Updating the Profile
+// The following fields are accepted (full_name, email, phone, age, bio and location)
+// Missing fields are accepted. 
+// The user sends a PUT request.
+// Check the body for the accepted fields. It must be a json(if missing return 404). If fields are missing, its fine. But if someone includes a field not accepted, send a bad request
+// Validate each field. 
+//    full_name:
+//        Must be a string.
+//        Must not be empty.
+//
+//    email:
+//        Must be a string.
+//        Must not be empty.
+//        Must have a valid email format.
+//
+//    phone:
+//        Must be a string if provided.
+//        Must not be an empty string.
+//
+//    age:
+//        Must be a number.
+//        Must be an integer.
+//        Must be between 1 and 150.
+//        Must not be negative, NaN, or Infinity.
+//
+//    bio:
+//        Must be a string if provided.
+//        Decide whether empty bio is allowed.
+//
+//    location:
+//        Must be a string if provided.
+//        Decide whether empty location is allowed.
+// Get the id from the query parameter ?id=X
+// Check if the profile exists with the id. Id must sanitized to remove all text and characters, then converted into a number. 
+// Dynamically generate an update query with the fields provided.
+// Return a response if update is successful or bad reques or internal server error.
+
+/**
+ * PUT /api/profile?id=X
+ * Updates an existing user profile with dynamic fields
+ */
+export async function updateProfile(req: Request) {
+    try {
+        // 1. Sanitize & Validate ID parameter (?id=X)
+        const url = new URL(req.url);
+        const rawIdParam = (req as any).params?.id || url.searchParams.get("id");
+
+        if (!rawIdParam) {
+            return Response.json(
+                { success: false, error: "A numeric profile ID is required in query parameters (?id=X)." },
+                { status: 400 }
+            );
+        }
+
+        // Sanitize: strip out all non-numeric characters
+        const sanitizedIdStr = String(rawIdParam).replace(/\D/g, "");
+        const profileId = Number(sanitizedIdStr);
+
+        if (!sanitizedIdStr || isNaN(profileId) || profileId <= 0) {
+            return Response.json(
+                { success: false, error: "Invalid profile ID format provided." },
+                { status: 400 }
+            );
+        }
+
+        // 2. Parse & Validate JSON Body
+        let body: Record<string, any>;
+        try {
+            body = await req.json();
+        } catch {
+            return Response.json(
+                { success: false, error: "Invalid JSON body provided." },
+                { status: 400 }
+            );
+        }
+
+        // Check for empty body
+        if (!body || Object.keys(body).length === 0) {
+            return Response.json(
+                { success: false, error: "Request body cannot be empty. At least one field to update must be provided." },
+                { status: 400 }
+            );
+        }
+
+        // 3. Check for unauthorized fields (strict whitelist)
+        const allowedFields = ["full_name", "email", "phone", "age", "bio", "location"];
+        const receivedFields = Object.keys(body);
+        const invalidFields = receivedFields.filter((field) => !allowedFields.includes(field));
+
+        if (invalidFields.length > 0) {
+            return Response.json(
+                {
+                    success: false,
+                    error: `Invalid field(s) provided: ${invalidFields.join(", ")}. Allowed fields are: ${allowedFields.join(", ")}.`,
+                },
+                { status: 400 }
+            );
+        }
+
+        // 4. Validate Each Provided Field
+        const { full_name, email, phone, age, bio, location } = body;
+
+        // full_name
+        if (full_name !== undefined) {
+            if (typeof full_name !== "string") {
+                return Response.json(
+                    { success: false, error: "full_name must be a string." },
+                    { status: 400 }
+                );
+            }
+        }
+
+        // email
+        if (email !== undefined) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (typeof email !== "string" || !emailRegex.test(email.trim())) {
+                return Response.json(
+                    { success: false, error: "email must be a valid email address." },
+                    { status: 400 }
+                );
+            }
+        }
+
+        // phone
+        if (phone !== undefined) {
+            if (typeof phone !== "string") {
+                return Response.json(
+                    { success: false, error: "phone must be a string if provided." },
+                    { status: 400 }
+                );
+            }
+        }
+
+        // age
+        if (age !== undefined) {
+            if (
+                typeof age !== "number" ||
+                !Number.isInteger(age) ||
+                isNaN(age) ||
+                !Number.isFinite(age) ||
+                age < 1 ||
+                age > 150
+            ) {
+                return Response.json(
+                    { success: false, error: "age must be an integer between 1 and 150." },
+                    { status: 400 }
+                );
+            }
+        }
+
+        // bio (Empty string allowed to clear bio)
+        if (bio !== undefined) {
+            if (typeof bio !== "string") {
+                return Response.json(
+                    { success: false, error: "bio must be a string if provided." },
+                    { status: 400 }
+                );
+            }
+        }
+
+        // location (Empty string allowed to clear location)
+        if (location !== undefined) {
+            if (typeof location !== "string") {
+                return Response.json(
+                    { success: false, error: "location must be a string if provided." },
+                    { status: 400 }
+                );
+            }
+        }
+
+        // 5. Check if profile exists in database
+        const [existingProfile] = await db`
+            SELECT id FROM profiles WHERE id = ${profileId}
+        `;
+
+        if (!existingProfile) {
+            return Response.json(
+                { success: false, error: `Profile with ID ${profileId} not found.` },
+                { status: 404 }
+            );
+        }
+
+        // 6. Dynamically Build & Execute Update Query
+        const updateData: Record<string, any> = {};
+        if (full_name !== undefined) updateData.full_name = full_name.trim();
+        if (email !== undefined) updateData.email = email.trim();
+        if (phone !== undefined) updateData.phone = phone.trim();
+        if (age !== undefined) updateData.age = age;
+        if (bio !== undefined) updateData.bio = bio.trim();
+        if (location !== undefined) updateData.location = location.trim();
+
+        // Perform dynamic update using bun:sql
+        await db`
+            UPDATE profiles 
+            SET ${db(updateData)}
+            WHERE id = ${profileId}
+        `;
+
+        // 7. Retrieve & Return Updated Profile
+        const [updatedProfile] = await db`
+            SELECT id, full_name, email, phone, bio, location, age, created_at, updated_at
+            FROM profiles
+            WHERE id = ${profileId}
+        `;
+
+        return Response.json(
+            {
+                success: true,
+                message: "Profile updated successfully.",
+                data: updatedProfile,
+            },
+            { status: 200 }
+        );
+    } catch (dbError: any) {
+        console.error("Database Update Error:", dbError.message);
+
+        // Handle unique constraint violations (e.g. duplicate email on update)
+        if (dbError.errno === 1062) {
+            return Response.json(
+                { success: false, error: "A profile with this email already exists." },
+                { status: 409 }
+            );
+        }
+
+        return Response.json(
+            { success: false, error: "Failed to update profile due to database failure." },
+            { status: 500 }
+        );
+    }
+}

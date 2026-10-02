@@ -1,5 +1,5 @@
 import db from "./src/config/database";
-import { createProfile, deleteProfile, getProfileById, getProfiles } from "./src/controllers/profile";
+import { createProfile, deleteProfile, getProfileById, getProfiles, updateProfile } from "./src/controllers/profile";
 
 
 try {
@@ -33,7 +33,8 @@ const server = Bun.serve({
                 }
                 return getProfiles(req);
             },
-            DELETE : deleteProfile
+            DELETE : deleteProfile,
+            PUT : updateProfile
         },
     },
     fetch(req) { return new Response("Not Found", { status: 404 }) }
