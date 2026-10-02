@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from "bun:test";
 import db from "../src/config/database"; // Adjust path to database.ts
-import { createProfile, getProfiles, getProfileById, deleteProfile } from "../src/controllers/profile"; // Adjust path to profile.ts
+import { createProfile, getProfiles, getProfileById, deleteProfile, updateProfile } from "../src/controllers/profile"; // Adjust path to profile.ts
 
 describe("POST /api/profile - createProfile Controller", () => {
     // Helper to invoke the controller directly
@@ -250,5 +250,168 @@ describe("DELETE /api/profile?id=X (deleteProfile)", () => {
             SELECT * FROM profiles WHERE id = ${deleteTargetId}
         `;
         expect(checkProfile).toBeUndefined();
+    });
+});
+
+describe("PUT /api/profile?id=X (updateProfile)", () => {
+    let updateTargetId: number;
+    let conflictTargetEmail = "update_conflict@example.com";
+
+    beforeAll(async () => {
+        // 1. Clean up any existing records from previous test runs
+        await db`DELETE FROM profiles WHERE email IN ('test_update@example.com', ${conflictTargetEmail})`;
+
+        // 2. Insert main test profile to update
+        await db`
+            INSERT INTO profiles (full_name, email, phone, bio, location, age)
+            VALUES ('Update User', 'test_update@example.com', '+256700000000', 'Original Bio', 'Kampala', 25)
+        `;
+
+        // 3. Insert second profile to test 409 email conflict
+        await db`
+            INSERT INTO profiles (full_name, email, phone, bio, location, age)
+            VALUES ('Conflict User', ${conflictTargetEmail}, '+256700111222', 'Other Bio', 'Entebbe', 30)
+        `;
+
+        // 4. Retrieve primary update target ID by email as agreed
+        const [insertedProfile] = await db`
+            SELECT * FROM profiles WHERE email = 'test_update@example.com'
+        `;
+
+        updateTargetId = insertedProfile.id;
+    });
+
+    it("should return 400 if ID parameter is missing or invalid", async () => {
+        const req = new Request("http://localhost:5500/api/profile?id=abc", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ full_name: "Updated Name" }),
+        });
+
+        const res = await updateProfile(req);
+        const data = await res.json();
+
+        expect(res.status).toBe(400);
+        expect(data.success).toBe(false);
+        expect(data.error).toContain("Invalid profile ID");
+    });
+
+    it("should return 400 if JSON body is empty", async () => {
+        const req = new Request(`http://localhost:5500/api/profile?id=${updateTargetId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}),
+        });
+
+        const res = await updateProfile(req);
+        const data = await res.json();
+
+        expect(res.status).toBe(400);
+        expect(data.success).toBe(false);
+        expect(data.error).toContain("Request body cannot be empty");
+    });
+
+    it("should return 400 if an unallowed field is included", async () => {
+        const req = new Request(`http://localhost:5500/api/profile?id=${updateTargetId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ full_name: "John", isAdmin: true }),
+        });
+
+        const res = await updateProfile(req);
+        const data = await res.json();
+
+        expect(res.status).toBe(400);
+        expect(data.success).toBe(false);
+        expect(data.error).toContain("Invalid field(s) provided");
+    });
+
+    it("should return 400 if age validation fails", async () => {
+        const req = new Request(`http://localhost:5500/api/profile?id=${updateTargetId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ age: 200 }),
+        });
+
+        const res = await updateProfile(req);
+        const data = await res.json();
+
+        expect(res.status).toBe(400);
+        expect(data.success).toBe(false);
+        expect(data.error).toContain("age must be an integer between 1 and 150");
+    });
+
+    it("should return 400 if email format is invalid", async () => {
+        const req = new Request(`http://localhost:5500/api/profile?id=${updateTargetId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: "invalid-email-format" }),
+        });
+
+        const res = await updateProfile(req);
+        const data = await res.json();
+
+        expect(res.status).toBe(400);
+        expect(data.success).toBe(false);
+        expect(data.error).toContain("email must be a valid");
+    });
+
+    it("should return 404 if profile ID does not exist", async () => {
+        const req = new Request("http://localhost:5500/api/profile?id=999999", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ full_name: "Ghost Profile" }),
+        });
+
+        const res = await updateProfile(req);
+        const data = await res.json();
+
+        expect(res.status).toBe(404);
+        expect(data.success).toBe(false);
+        expect(data.error).toContain("not found");
+    });
+
+    it("should return 409 Conflict when updating email to one that already exists", async () => {
+        const req = new Request(`http://localhost:5500/api/profile?id=${updateTargetId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: conflictTargetEmail }),
+        });
+
+        const res = await updateProfile(req);
+        const data = await res.json();
+
+        expect(res.status).toBe(409);
+        expect(data.success).toBe(false);
+        expect(data.error).toContain("already exists");
+    });
+
+    it("should return 200 OK and successfully update profile with partial fields", async () => {
+        const req = new Request(`http://localhost:5500/api/profile?id=${updateTargetId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                full_name: "Updated Full Name",
+                age: 28,
+                location: "Jinja",
+            }),
+        });
+
+        const res = await updateProfile(req);
+        const data = await res.json();
+
+        expect(res.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(data.data.full_name).toBe("Updated Full Name");
+        expect(data.data.age).toBe(28);
+        expect(data.data.location).toBe("Jinja");
+
+        // Verify updated record directly in MySQL database
+        const [updatedInDb] = await db`
+            SELECT * FROM profiles WHERE id = ${updateTargetId}
+        `;
+        expect(updatedInDb.full_name).toBe("Updated Full Name");
+        expect(updatedInDb.age).toBe(28);
+        expect(updatedInDb.location).toBe("Jinja");
     });
 });
