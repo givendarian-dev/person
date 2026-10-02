@@ -1,5 +1,6 @@
 import db from "./src/config/database";
 import { createProfile, deleteProfile, getProfileById, getProfiles, updateProfile } from "./src/controllers/profile";
+import index from './frontend/index.html';
 
 
 try {
@@ -19,7 +20,7 @@ const server = Bun.serve({
     port: PORT,
     routes: {
         // frontend routes
-        "/": () => new Response('Welcome to the Personal Profile System'),
+        "/": index,
 
         // Backend routes
         "/api/server": () => Response.json({ message: "Server is running" }),
