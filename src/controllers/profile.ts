@@ -293,3 +293,74 @@ export async function getProfileById(req: Request) {
         );
     }
 }
+
+// Deleting the profile by ID
+// Get the id from the query ?id=
+// Check if it exists in the database.
+// Delete it from the database. 
+// Return a response 
+
+/**
+ * DELETE /api/profile?id=X
+ * Deletes a profile by ID
+ */
+export async function deleteProfile(req: Request) {
+    try {
+        const url = new URL(req.url);
+        
+        // Support both req.params.id and searchParams (?id=)
+        const id = (req as any).params?.id || url.searchParams.get("id");
+
+        // 1. Validate ID input
+        if (!id || isNaN(Number(id))) {
+            return Response.json(
+                {
+                    success: false,
+                    error: "A valid numeric profile ID is required",
+                },
+                { status: 400 }
+            );
+        }
+
+        const profileId = Number(id);
+
+        // 2. Check if the profile exists before deleting
+        const [existingProfile] = await db`
+            SELECT id FROM profiles WHERE id = ${profileId}
+        `;
+
+
+        if (!existingProfile) {
+            return Response.json(
+                {
+                    success: false,
+                    error: `Profile with ID ${profileId} not found`,
+                },
+                { status: 404 }
+            );
+        }
+
+        // 3. Delete from the database
+        await db`
+            DELETE FROM profiles WHERE id = ${profileId}
+        `;
+
+        // 4. Return success response
+        return Response.json(
+            {
+                success: true,
+                message: `Profile with ID ${profileId} deleted successfully`,
+            },
+            { status: 200 }
+        );
+    } catch (dbError: any) {
+        console.error("Database Delete Error:", dbError.message);
+        return Response.json(
+            {
+                success: false,
+                error: "Failed to delete profile from database.",
+            },
+            { status: 500 }
+        );
+    }
+}
