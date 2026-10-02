@@ -22,9 +22,9 @@ The current implementation is backend-focused and includes data validation befor
 ## Project structure
 - `index.ts` — starts the Bun server and defines application routes
 - `src/config/database.ts` — configures the MySQL database connection
-- `src/controllers/profile.ts` — handles profile validation and storage logic
+- `src/controllers/profile.ts` — handles profile validation, retrieval, updates, and deletion logic
 - `schema.sql` — creates the `profiles` table in MySQL
-- `frontend/` — placeholder frontend folder; currently empty
+- `frontend/` — contains the static HTML/CSS/JS frontend shell for the app
 - `text.sql` — SQL practice/examples, not part of the main app logic
 - `.env` — environment variables used to connect to MySQL
 - `package.json` — Bun project dependencies and scripts
@@ -92,6 +92,7 @@ The server exposes the following routes:
 - `GET /api/profile` — returns all profiles
 - `GET /api/profile?id=1` — returns a single profile by ID
 - `POST /api/profile` — creates a new profile record
+- `PUT /api/profile?id=1` — updates an existing profile by ID
 - `DELETE /api/profile?id=1` — deletes a profile by ID
 
 ## Profile validation rules
@@ -126,4 +127,4 @@ The `POST /api/profile` route validates the payload before inserting data. It ch
 ```
 
 ## Current status
-This project is currently a working backend prototype for personal profile creation. The frontend folder is present but not yet implemented, so the primary functionality is the API and database layer.
+This project is a working Bun + TypeScript backend for personal profile management, with a small static frontend scaffold already present. The main functionality is the CRUD API and MySQL-backed data layer.
