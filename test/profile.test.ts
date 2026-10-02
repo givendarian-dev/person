@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from "bun:test";
 import db from "../src/config/database"; // Adjust path to database.ts
-import { createProfile, getProfiles, getProfileById } from "../src/controllers/profile"; // Adjust path to profile.ts
+import { createProfile, getProfiles, getProfileById, deleteProfile } from "../src/controllers/profile"; // Adjust path to profile.ts
 
 describe("POST /api/profile - createProfile Controller", () => {
     // Helper to invoke the controller directly
@@ -183,5 +183,72 @@ describe("GET Profile Endpoints", () => {
             expect(data.success).toBe(false);
             expect(data.error).toContain("not found");
         });
+    });
+});
+
+describe("DELETE /api/profile?id=X (deleteProfile)", () => {
+    let deleteTargetId: number;
+
+    beforeAll(async () => {
+        // 1. Clean up any existing record from previous test runs
+        await db`DELETE FROM profiles WHERE email = 'test_delete@example.com'`;
+
+        // 2. Insert record specifically created for testing deletion
+        await db`
+            INSERT INTO profiles (full_name, email, phone, bio, location, age)
+            VALUES ('Delete User', 'test_delete@example.com', '+256700000000', 'Bio text', 'Kampala', 25)
+        `;
+
+        // 3. Query the inserted profile directly by email to get its assigned ID
+        const [insertedProfile] = await db`
+            SELECT * FROM profiles WHERE email = 'test_delete@example.com'
+        `;
+
+        deleteTargetId = insertedProfile.id;
+    });
+
+    it("should return 400 Bad Request if ID parameter is missing or invalid", async () => {
+        const req = new Request("http://localhost:5500/api/profile?id=abc", {
+            method: "DELETE",
+        });
+
+        const res = await deleteProfile(req);
+        const data = await res.json();
+
+        expect(res.status).toBe(400);
+        expect(data.success).toBe(false);
+        expect(data.error).toContain("valid numeric profile ID");
+    });
+
+    it("should return 404 Not Found for an ID that does not exist", async () => {
+        const req = new Request("http://localhost:5500/api/profile?id=999999", {
+            method: "DELETE",
+        });
+
+        const res = await deleteProfile(req);
+        const data = await res.json();
+
+        expect(res.status).toBe(404);
+        expect(data.success).toBe(false);
+        expect(data.error).toContain("not found");
+    });
+
+    it("should return 200 OK and delete the profile from the database", async () => {
+        const req = new Request(`http://localhost:5500/api/profile?id=${deleteTargetId}`, {
+            method: "DELETE",
+        });
+
+        const res = await deleteProfile(req);
+        const data = await res.json();
+
+        expect(res.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(data.message).toContain("deleted successfully");
+
+        // Verify row is actually gone from MySQL
+        const [checkProfile] = await db`
+            SELECT * FROM profiles WHERE id = ${deleteTargetId}
+        `;
+        expect(checkProfile).toBeUndefined();
     });
 });
