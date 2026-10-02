@@ -76,18 +76,23 @@ Start the app in development mode:
 bun run dev
 ```
 
-Or run it directly:
+Or run the production/start script:
 
 ```bash
-bun run index.ts
+bun run start
 ```
+
+The server listens on port 5500 by default.
 
 ## API endpoints
 The server exposes the following routes:
 
 - `GET /` — welcome message
 - `GET /api/server` — confirms the server is running
+- `GET /api/profile` — returns all profiles
+- `GET /api/profile?id=1` — returns a single profile by ID
 - `POST /api/profile` — creates a new profile record
+- `DELETE /api/profile?id=1` — deletes a profile by ID
 
 ## Profile validation rules
 The `POST /api/profile` route validates the payload before inserting data. It checks:
